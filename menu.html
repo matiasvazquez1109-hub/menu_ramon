@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Menú · Parrilla Don Ramón</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..800;1,9..144,400..800&family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --carbon: #1E1B18;
+    --crema: #F5EEE1;
+    --brasa: #B5442B;
+    --oliva: #4E5A32;
+    --linea: #DCCFB6;
+    --serif: "Fraunces", Georgia, serif;
+    --sans: "Manrope", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--crema); color: var(--carbon); font-family: var(--sans); line-height: 1.5; }
+
+  header {
+    text-align: center;
+    padding: 3rem 1.25rem 2rem;
+    border-bottom: 2px solid var(--carbon);
+  }
+  header h1 { font-family: var(--serif); font-size: clamp(2.4rem, 7vw, 4rem); font-weight: 600; font-variation-settings: "opsz" 144; }
+  header p { margin-top: .5rem; font-size: .95rem; opacity: .75; }
+  #estado-fuente { margin-top: .75rem; font-size: .8rem; color: var(--brasa); min-height: 1em; }
+
+  nav.categorias {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; gap: .5rem; overflow-x: auto;
+    padding: .75rem 1rem; background: var(--crema);
+    border-bottom: 1px solid var(--linea);
+  }
+  nav.categorias a {
+    flex: 0 0 auto; text-decoration: none; color: var(--carbon);
+    padding: .4rem .9rem; border: 1px solid var(--carbon); border-radius: 999px;
+    font-size: .9rem; font-weight: 600;
+  }
+  nav.categorias a:hover { background: var(--carbon); color: var(--crema); }
+
+  main { max-width: 720px; margin: 0 auto; padding: 1rem 1.25rem 4rem; }
+
+  section { padding: 2rem 0 .5rem; }
+  section h2 {
+    font-family: var(--serif); font-size: 2rem; font-weight: 600;
+    color: var(--brasa); margin-bottom: 1rem; font-variation-settings: "opsz" 144;
+  }
+
+  .plato {
+    display: grid; grid-template-columns: 1fr auto; gap: .25rem 1rem;
+    padding: 1rem 0; border-bottom: 1px dotted var(--linea);
+  }
+  .plato h3 { font-family: var(--serif); font-size: 1.25rem; font-weight: 600; }
+  .plato p { grid-column: 1; font-size: .92rem; opacity: .75; }
+  .plato .precio { grid-row: 1; grid-column: 2; font-family: var(--serif); font-size: 1.25rem; font-weight: 600; color: var(--oliva); white-space: nowrap; }
+
+  .vacio { text-align: center; padding: 3rem 0; opacity: .6; }
+  footer { text-align: center; font-size: .85rem; opacity: .7; padding: 2rem 1rem; border-top: 1px solid var(--linea); }
+
+  @media (max-width: 480px) {
+    .plato { grid-template-columns: 1fr; }
+    .plato .precio { grid-row: auto; grid-column: 1; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Parrilla Don Ramón</h1>
+  <p>Carta del día · precios en pesos</p>
+  <p id="estado-fuente"></p>
+</header>
+
+<nav class="categorias" id="categorias" aria-label="Categorías"></nav>
+
+<main id="menu">
+  <p class="vacio">Cargando menú…</p>
+</main>
+
+<footer>Av. Ejemplo 1234 · Abierto todos los días de 12:00 a 00:00</footer>
+
+<script>
+  /* ===== CONFIGURACIÓN =====
+     1) En Google Sheets: Archivo > Compartir > Publicar en la web.
+     2) Elegí la hoja "Menú" y el formato "Valores separados por comas (.csv)".
+     3) Copiá el link y pegalo entre las comillas de abajo.
+     Si queda vacío, la página muestra datos de ejemplo. */
+  const URL_SHEET_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcwy3Yz3OO9GnM8fVR8P7VpwxIXq39u4RlRcxeFkWZdQjHtNUNhz4GYz7UofbKbfmP7bsWYupES03l/pub?output=csv";
+
+  // Datos de ejemplo (mismo formato que la planilla)
+  const EJEMPLO = `categoria,producto,descripcion,precio,disponible
+Entradas,Empanadas de carne (x3),"Carne cortada a cuchillo, horneadas",6500,si
+Entradas,Provoleta,Queso provolone a la parrilla con orégano,9000,si
+Principales,Bife de chorizo,300 g con papas rústicas,22000,si
+Principales,Ravioles de ricota,Salsa de tomate casera,16000,si
+Principales,Pollo al verdeo,Con papas fritas,15000,si
+Postres,Flan casero,Con dulce de leche y crema,7000,si
+Postres,Volcán de chocolate,Con helado de vainilla,8500,si
+Bebidas,Agua mineral 500 ml,,2500,si
+Bebidas,Vino de la casa (copa),Malbec,5000,si`;
+
+  // Parser de CSV que respeta comillas
+  function parsearCSV(texto) {
+    const filas = [];
+    let fila = [], campo = "", comillas = false;
+    for (let i = 0; i < texto.length; i++) {
+      const c = texto[i];
+      if (comillas) {
+        if (c === '"' && texto[i + 1] === '"') { campo += '"'; i++; }
+        else if (c === '"') comillas = false;
+        else campo += c;
+      } else if (c === '"') comillas = true;
+      else if (c === ",") { fila.push(campo); campo = ""; }
+      else if (c === "\n" || c === "\r") {
+        if (campo !== "" || fila.length) { fila.push(campo); filas.push(fila); fila = []; campo = ""; }
+      } else campo += c;
+    }
+    if (campo !== "" || fila.length) { fila.push(campo); filas.push(fila); }
+    if (!filas.length) return [];
+    const cab = filas[0].map(h => h.trim().toLowerCase());
+    return filas.slice(1).map(f => Object.fromEntries(cab.map((h, i) => [h, (f[i] || "").trim()])));
+  }
+
+  const esc = s => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const pesos = n => "$ " + Number(n).toLocaleString("es-AR");
+
+  function dibujar(platos) {
+    const menu = document.getElementById("menu");
+    const nav = document.getElementById("categorias");
+    const visibles = platos.filter(p => (p.disponible || "si").toLowerCase() !== "no" && p.producto);
+
+    if (!visibles.length) {
+      menu.innerHTML = '<p class="vacio">Por ahora no hay platos cargados.</p>';
+      nav.innerHTML = "";
+      return;
+    }
+
+    // Agrupar por categoría, en el orden en que aparecen en la planilla
+    const grupos = new Map();
+    visibles.forEach(p => {
+      const cat = p.categoria || "Otros";
+      if (!grupos.has(cat)) grupos.set(cat, []);
+      grupos.get(cat).push(p);
+    });
+
+    nav.innerHTML = [...grupos.keys()].map(c => `<a href="#cat-${esc(c.replace(/\s+/g, "-"))}">${esc(c)}</a>`).join("");
+
+    menu.innerHTML = [...grupos].map(([cat, items]) => `
+      <section id="cat-${esc(cat.replace(/\s+/g, "-"))}">
+        <h2>${esc(cat)}</h2>
+        ${items.map(p => `
+          <article class="plato">
+            <h3>${esc(p.producto)}</h3>
+            <span class="precio">${p.precio ? pesos(p.precio.replace(/[^\d.]/g, "")) : "Consultar"}</span>
+            ${p.descripcion ? `<p>${esc(p.descripcion)}</p>` : ""}
+          </article>`).join("")}
+      </section>`).join("");
+  }
+
+  async function cargar() {
+    const estado = document.getElementById("estado-fuente");
+    if (!URL_SHEET_CSV) {
+      estado.textContent = "Modo demo: falta conectar la planilla.";
+      dibujar(parsearCSV(EJEMPLO));
+      return;
+    }
+    try {
+      // Se agrega un parámetro para evitar que el navegador guarde una versión vieja
+      const r = await fetch(URL_SHEET_CSV + (URL_SHEET_CSV.includes("?") ? "&" : "?") + "t=" + Date.now());
+      if (!r.ok) throw new Error(r.status);
+      const texto = await r.text();
+      dibujar(parsearCSV(texto));
+      estado.textContent = "";
+    } catch (e) {
+      estado.textContent = "No se pudo actualizar el menú. Mostrando la última versión cargada.";
+      if (!document.querySelector(".plato")) dibujar(parsearCSV(EJEMPLO));
+    }
+  }
+
+  cargar();
+  // Se vuelve a leer cada 5 minutos para que los cambios de la planilla aparezcan solos
+  setInterval(cargar, 5 * 60 * 1000);
+</script>
+</body>
+</html>
